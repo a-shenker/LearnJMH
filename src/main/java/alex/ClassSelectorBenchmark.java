@@ -1,11 +1,7 @@
 package alex;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectAVLTreeMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectMaps;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectRBTreeMap;
 import lombok.extern.slf4j.Slf4j;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -69,7 +65,7 @@ public class ClassSelectorBenchmark {
    }
    private final Map<Class<?>, Runnable> _setters;
    public ClassSelectorBenchmark() {
-      final Map<Class<?>, Runnable> tmp = new Object2ObjectArrayMap<>(TYPES.length);
+      final Object2ObjectMap<Class<?>, Runnable> tmp = new Object2ObjectArrayMap<>(TYPES.length);
       tmp.put(int.class, () -> _counts[INT]++);
       tmp.put(long.class, () -> _counts[LONG]++);
       tmp.put(double.class, () -> _counts[DOUBLE]++);
@@ -89,7 +85,7 @@ public class ClassSelectorBenchmark {
       tmp.put(String.class, () -> _counts[STRING]++);
       tmp.put(LocalDate.class, () -> _counts[LOCAL_DATE]++);
       tmp.put(LocalDateTime.class, () -> _counts[LOCAL_DATE_DATE]++);
-      //tmp.defaultReturnValue(() -> {throw new IllegalArgumentException("Unknown class");});
+      tmp.defaultReturnValue(() -> {throw new IllegalArgumentException("Unknown class");});
       _setters = tmp; //Object2ObjectMaps.unmodifiable(tmp);
    }
    private final int[] _counts = new int[TYPES.length];
@@ -103,7 +99,7 @@ public class ClassSelectorBenchmark {
 
    @State(Scope.Benchmark)
    public static class SampleSize {
-      @Param("1000000")
+      @Param("10000000")
       public int sampleSize;
    }
 
@@ -116,8 +112,9 @@ public class ClassSelectorBenchmark {
         _setters.get(randomClass()).run();
       }
       sink.consume(_counts);
-      //sanityCheck(param.sampleSize);
+      sanityCheck(param.sampleSize);
    }
+
    @Benchmark
    @BenchmarkMode(Mode.AverageTime)
    @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -125,28 +122,6 @@ public class ClassSelectorBenchmark {
       clear();
       for (int i = 0; i < param.sampleSize; i ++) {
          final Class<?> clazz = randomClass();
-//         switch (clazz.getSimpleName()) {
-//            case "int": _counts[INT]++; break;
-//            case "long": _counts[LONG]++; break;
-//            case "double": _counts[DOUBLE]++; break;
-//            case "float": _counts[FLOAT]++; break;
-//            case "short": _counts[SHORT]++; break;
-//            case "byte": _counts[BYTE]++; break;
-//            case "boolean": _counts[BOOLEAN]++; break;
-//            case "char": _counts[CHAR]++; break;
-//            case "Integer": _counts[INT_OBJ]++; break;
-//            case "Long": _counts[LONG_OBJ]++; break;
-//            case "Double": _counts[DOUBLE_OBJ]++; break;
-//            case "Float": _counts[FLOAT_OBJ]++; break;
-//            case "Short": _counts[SHORT_OBJ]++; break;
-//            case "Byte": _counts[BYTE_OBJ]++; break;
-//            case "Boolean": _counts[BOOLEAN_OBJ]++; break;
-//            case "Character": _counts[CHAR_OBJ]++; break;
-//            case "String": _counts[STRING]++; break;
-//            case "LocalDate": _counts[LOCAL_DATE]++; break;
-//            case "LocalDateTime": _counts[LOCAL_DATE_DATE]++; break;
-//            default: throw new IllegalArgumentException("Unknown class");
-//         }
          if (clazz == int.class) {
             _counts[INT]++;
          } else if (clazz == long.class) {
@@ -190,7 +165,7 @@ public class ClassSelectorBenchmark {
          }
       }
       sink.consume(_counts);
-      //sanityCheck(param.sampleSize);
+      sanityCheck(param.sampleSize);
    }
    private void sanityCheck(final int sampleSize) {
      final int total = Arrays.stream(_counts).sum();
@@ -198,30 +173,29 @@ public class ClassSelectorBenchmark {
        throw new IllegalStateException(
          String.format("Sanity check failed: total %d != sample size %d", total, sampleSize));
      }
-     log.info("Sanity check passed: total {} == sample size {}", total, sampleSize);
    }
+
    private void printCounts() {
       log.info("Counts:");
       for (int i = 0; i < TYPES.length; i++) {
-         System.out.printf("  %s: %d%n", TYPES[i].getSimpleName(), _counts[i]);
+         log.info("  %s: %d%n", TYPES[i].getSimpleName(), _counts[i]);
       }
    }
-
 
    public static void main(final String[] argv) {
       final ClassSelectorBenchmark benchmark = new ClassSelectorBenchmark();
       final SampleSize ss = new SampleSize();
-      ss.sampleSize = 1_000_000;
+      ss.sampleSize = 100_000_000;
       final Blackhole sink  = new Blackhole("Today's password is swordfish. I understand instantiating Blackholes directly is dangerous.");
-      benchmark.log.info("Running if-then test...");
+      ClassSelectorBenchmark.log.info("Running if-then test...");
       long beforeT = System.nanoTime();
       benchmark.runIfThenTest(ss, sink);
-      benchmark.log.info("If-then test took {}ms...", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - beforeT));
+      ClassSelectorBenchmark.log.info("If-then test took {}ms...", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - beforeT));
       benchmark.printCounts();
-      benchmark.log.info("Running functional test...");
+      ClassSelectorBenchmark.log.info("Running functional test...");
       beforeT = System.nanoTime();
       benchmark.runFunctionalTest(ss, sink);
-      benchmark.log.info("Functional test took {}ms...", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - beforeT));
+      ClassSelectorBenchmark.log.info("Functional test took {}ms...", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - beforeT));
       benchmark.printCounts();
    }
 }
